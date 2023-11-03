@@ -1,0 +1,537 @@
+---
+title: "PA1 HW5"
+author: "Omar Shatrat"
+date: "2023-10-29"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#1a
+
+```{r}
+
+library(psych)
+
+dat = data.frame(
+x1=c(2.23,2.57,2.87,3.1,3.39,2.83,3.02,2.14,3.04,3.26,3.39,2.35,
+2.76,3.9,3.15),
+x2=c(9.66,8.94,4.4,6.64,4.91,8.52,8.04,9.05,7.71,5.11,5.05,8.51,
+6.59,4.9,6.96),
+y=c(12.37,12.66,12,11.93,11.06,13.03,13.13,11.44,12.86,10.84,
+11.2,11.56,10.83,12.63,12.46))
+
+pairs.panels(dat, ellipses = FALSE)
+
+
+```
+
+x1 and x2 have a strong negative correlation, x2 and y have a strong positive correlation, and x1 and y do not appear to have a correlation at all.
+
+#1b
+
+```{r}
+
+model1 <- lm(y~x1, data = dat)
+
+summary(model1)
+
+model1$residuals
+
+plot(model1)
+
+```
+
+The model is not significant at all. The residuals are large, the p-value is huge, and the R^2 is very tiny. Also, the standard error for the x1 predictor is many magnitudes higher than its slope estimate.
+
+#1c
+
+```{r}
+
+model2 <- lm(y~x2, data = dat)
+
+summary(model2)
+
+model2$residuals
+
+plot(model2)
+
+```
+
+Again, the model is once again insignificant, although the residuals and overall fit are better this time around.
+
+#1d
+
+```{r}
+
+model3 <- lm(y~., data = dat)
+
+summary(model3)
+
+model3$residuals
+
+plot(model3)
+
+
+```
+
+The model is now significant, as are each of the predictors. However, the residuals are clearly biased and form a straight line. This indicates yhat is biased and that the linearity assumption is in question.
+
+#1e
+
+Because each predictor is insignificant on its own, it does not make sense to use forward selection. Both predictors are significant in a full model, so backward selection makes more sense to use.
+
+
+#3a
+
+```{r}
+
+sigma = matrix(0.9, nrow = 4, ncol = 4) + .1*diag(4)
+A = chol(sigma)
+A
+t(A) %*% A
+
+
+```
+
+#3b
+
+```{r}
+
+Z = matrix(rnorm(4000), nrow = 1000)
+X = Z %*% A
+cov(X) 
+(t(A) %*% A) - cov(X)
+mean((t(A) %*% A) - cov(X))
+
+```
+
+#3c
+
+```{r}
+
+set.seed(12345)
+
+# generate a new Z, A and X
+Z <- matrix(rnorm(151500), nrow = 10100, ncol = 15) 
+
+# Define the covariance matrix (with cov(xj, xk) = 0.9 for j != k)
+sigma <- diag(15) + 0.9 * (1 - diag(15))
+
+# Perform the Cholesky decomposition
+A <- chol(sigma)
+
+# Multiply Z by A to get the correlated variables X
+X <- Z %*% A
+
+beta = c(1,-1,1.5,0.5,-0.5,rep(0,10))
+e = rnorm(10100)*3
+y = 3 + X %*% beta + e
+
+
+```
+
+
+#3d
+
+```{r}
+
+dat = data.frame(X)
+dat$y <- y
+train <- c(rep(T,100), rep(F, 10000))
+
+training_data <- dat[train,]
+test_data <- dat[!train,]
+
+fit <- lm(y ~ X1+X2+X3+X4+X5, data = training_data) #where is 7th estimate? do I apply model to all the data or only those 100 records?
+summary(fit) 
+
+error_variance <- summary(fit)$sigma^2
+
+confint(fit)
+
+```
+The error variance is approx. 10.24.
+The estimates do roughly equal the true parameter values and are withing 2 standard errors. 
+The slopes do have the correct signs, except for X4. Only the intercept and X3 are significant. 
+The 95% CI does cover the true values for each predictor.
+
+#3e
+
+```{r}
+
+
+predictions <- predict(fit, newdata = test_data)
+
+mean((test_data$y-predict(fit, test_data))^2)
+
+
+```
+
+MSE = 9.45
+
+
+#3f
+
+```{r}
+
+fit <- lm(y~., data = training_data)
+summary(fit)
+confint(fit)
+
+
+```
+
+All the coefficients are once again approx. equal to their true values. X5 experienced a sign flip. 
+
+Only the intercept and X3 are significant.  
+
+#3g
+
+```{r}
+
+predictions <- predict(fit, newdata = test_data)
+
+mean((test_data$y-predict(fit, test_data))^2)
+
+```
+
+The MSE = 10.23.
+
+#3h Forward Selection
+
+
+```{r}
+
+model_step <- lm(y~1, data=training_data)
+stepwise_model <- step(model_step,scope=~X1+X2+X3+X4+X5+X6+X7+X8+X9+X10+X11+X12+X13+X14+X15,test='F')
+summary(stepwise_model)
+confint(stepwise_model)
+
+```
+
+
+#3h Backward Selection
+
+```{r}
+
+fit <- step(fit, direction = 'both')
+summary(fit)
+
+
+```
+
+No, not all of the right variables did not make it in, only X1 and X3 did.
+
+#3i
+
+```{r}
+
+predictions <- predict(fit, newdata = test_data)
+
+mean((test_data$y-predict(fit, test_data))^2)
+
+```
+
+MSE = 10.04
+
+#3j
+
+```{r}
+
+set.seed(12345)
+
+library('glmnet')
+
+X <- as.matrix(training_data[,-16])
+#X <- scale(X)
+y <- as.numeric(training_data$y)
+
+cv_params <- cv.glmnet(X,y, alpha = 0) 
+plot(cv_params)
+
+best_lambda <- cv_params$lambda.min
+
+fit <- glmnet(X, y, alpha = 0, lambda = best_lambda)
+summary(fit)
+
+
+plot(cv_params$glmnet.fit, xvar = 'lambda', label = TRUE, main="Ridge Trace"); abline(h=0)
+
+
+
+
+```
+
+#3k
+
+```{r}
+
+
+ridge_predictions <- predict(fit, s = best_lambda, newx = scale(as.matrix(test_data[,-16])) )
+mse <- mean((test_data$y - ridge_predictions)^2)
+mse
+
+
+
+```
+MSE = 9.44
+
+#3l
+
+```{r}
+
+X <- as.matrix(training_data[,-16])
+y <- as.numeric(training_data$y)
+cvfit <- cv.glmnet(X, y, alpha = 1)  # Alpha = 1 for lasso
+plot(cvfit)
+
+best_lambda <- cvfit$lambda.min
+
+fit <- glmnet(X, y, alpha = 1, lambda = best_lambda)
+summary(fit)
+
+plot(cv_params$glmnet.fit, xvar = 'lambda', label = TRUE, main="Lasso Trace"); abline(h=0)
+
+
+```
+
+#3m
+
+
+```{r}
+
+lasso_predictions <- predict(fit, newx = as.matrix(test_data[,-16]) )
+mse <- mean((test_data$y - lasso_predictions)^2)
+mse
+
+```
+
+MSE = 9.42
+
+#3n
+
+```{r}
+
+source("hw5.R")
+
+hw5(rho = 0.9, sigmae = 5)
+hw5(rho = 0.9, sigmae = 3)
+hw5(rho = 0.9, sigmae = 1)
+hw5(rho = 0.5, sigmae = 5)
+hw5(rho = 0.5, sigmae = 3)
+hw5(rho = 0.5, sigmae = 1)
+hw5(rho = 0.1, sigmae = 5)
+hw5(rho = 0.1, sigmae = 3)
+hw5(rho = 0.1, sigmae = 1)
+
+
+
+
+```
+
+Low noise, low multicollinearity and Low noise, moderate multicollinearity tended to perform the best out of all the models. In instances where there is high multicollinearity and it is desired to preserve all the features, it makes sense to use ridge regression because it will shrink coefficients and help prevent overfitting. 
+
+Stepwise is useful in stances where multicollinearity is less present as it will help with selecting relevant features in a more simple way. 
+
+Finally, when multicollinearity is low, it may make sense to not apply any selection or shrinkage because the models already tend to perform well. 
+
+
+
+#4a
+
+```{r}
+
+customer <- read.csv('customer2.csv')
+
+customer$logtarg <- log(customer$target + 1)
+
+head(customer)
+summary(customer)
+
+
+
+```
+
+#4b
+
+```{r}
+
+library(dplyr)
+orders <- read.csv('orders.csv')
+
+orders <- orders %>%
+  mutate(t = as.numeric(as.Date("2014/11/25") - as.Date(orddate, format = "%d%b%Y")) / 365.25)
+
+head(orders)
+
+summary(orders)
+
+
+```
+
+
+#4c
+
+
+```{r}
+
+
+# Calculate "tof" (time on file) as the maximum value of "t" for each customer
+tof <- orders %>%
+  group_by(id) %>%
+  summarize(tof = max(t))
+
+
+r <- orders %>%
+  arrange(id, t) %>%
+  group_by(id) %>%
+  filter(!duplicated(orddate)) %>%  
+  mutate(r = ifelse(is.na(t - lag(t)), 0, t - lag(t))) %>%
+  ungroup()
+
+# Calculate "f" (frequency) as the count of distinct order numbers for each customer
+f <- orders %>%
+  group_by(id) %>%
+  summarize(f = n_distinct(ordnum))
+
+# Calculate "m" (monetary) as the sum of the product of "price" and "qty" for each customer
+m <- orders %>%
+  group_by(id) %>%
+  summarize(m = sum(price * qty))
+
+# Merge the calculated variables into a single "RFM" table
+RFM <- tof %>%
+  inner_join(r, by = "id") %>%
+  inner_join(f, by = "id") %>%
+  inner_join(m, by = "id")
+
+
+head(RFM)
+summary(RFM)
+
+
+```
+
+
+#4d
+
+```{r}
+
+library(lmtest)
+
+# Join the customer and RFM tables
+merged_data <- inner_join(customer, RFM, by = "id")
+
+# Subset the data to include only the training data (where train = 1)
+training_data <- merged_data %>% filter(train == 1)
+test_data <- merged_data %>% filter(train == 0)
+
+# Perform the regression
+model <- lm(logtarg ~ log(tof + .00001) + log(r + .00001) + log(f + .00001) + log(m + 1 + .00001), data = training_data)
+
+# Show a summary of the fitted model
+summary(model)
+
+```
+#4e
+
+```{r}
+
+test_predictions <- predict(model, newdata = test_data)
+
+# Calculate the squared errors
+squared_errors <- (test_data$logtarg - test_predictions)^2
+
+# Calculate the mean squared error (MSE)
+mse <- mean(squared_errors)
+mse
+
+
+```
+
+MSE = 1.42
+
+
+#5a
+
+
+```{r}
+
+
+library(ggplot2)
+library(GGally)
+library("psych")
+library(car)
+
+crime_data <- read.csv("bike.csv")
+
+crime_data2 <- crime_data[,c(4, 5, 6, 7, 8, 11, 13, 22, 24, 34, 43, 45)]
+
+#pairs.panels(crime_data2,
+#             ellipses = FALSE)
+
+
+colnames(crime_data2)
+crime_data3 <- crime_data2[, c(3, 5, 7, 9, 10, 12)]
+
+crime_model <- lm(trips ~ ., data = crime_data3)
+summary(crime_model)
+drop1(crime_model)
+pairs.panels(crime_data3,
+             ellipses = FALSE)
+vif(crime_model)
+
+
+
+
+
+```
+
+We arrived at our selection of features by using the following procedure: select the predictors which have the highest correlation with y, create a scatter plot matrix of them, and prune the matrix of features that have high multi-collinearity with other features. Doing this yielded a model with higher significance and R^2 than anything else we tried, including aggregating categories and applying interaction terms. 
+
+Number of businesses, capacity, and education all had positive coefficients. A neighborhood with a high number of businesses might have more attractions that are worth biking to. A neighborhood with a large capacity might mean a bike is needed to get around more easily. With respect to education, more educated people tend to live in more affluent neighborhoods, such as Evanston, which tend to have more bike-friendly infrastructure.
+
+
+#5b
+
+```{r}
+
+X <- as.matrix(crime_data3[,-6])
+y <- as.numeric(crime_data3$trips)
+
+cv_params <- cv.glmnet(X,y, alpha = 0) 
+plot(cv_params)
+
+best_lambda <- cv_params$lambda.min
+
+fit <- glmnet(X, y, alpha = 0, lambda = best_lambda)
+summary(fit)
+
+plot(cv_params$glmnet.fit, xvar = 'lambda', label = TRUE, main="Ridge Trace"); abline(h=0)
+
+
+
+```
+
+```{r}
+
+X <- as.matrix(crime_data3[,-6])
+y <- as.numeric(crime_data3$trips)
+
+cvfit <- cv.glmnet(X, y, alpha = 1)  # Alpha = 1 for lasso
+plot(cvfit)
+
+best_lambda <- cvfit$lambda.min
+
+fit <- glmnet(X, y, alpha = 1, lambda = best_lambda)
+summary(fit)
+
+
+plot(cv_params$glmnet.fit, xvar = 'lambda', label = TRUE, main="Lasso Trace"); abline(h=0)
+
+
+```
+
